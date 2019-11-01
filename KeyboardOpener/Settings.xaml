@@ -1,0 +1,42 @@
+﻿<Window x:Class="Win8_KeyboardOpener.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings" Height="430" Width="260" ResizeMode="NoResize" Icon="Assets/icon_Application.png">
+
+    <Grid Margin="11,0,11,11">
+        <StackPanel>
+            <TextBlock Text="Settings" FontSize="40" FontWeight="Light" />
+            <TextBlock Text="Keyboard" FontSize="25" FontWeight="Light" />
+            <TextBlock Text="Select keyboard open type:" />
+            <ComboBox Name="cb_KeyboardType">
+                <ComboBoxItem Content="TabTip Touch Keyboard"/>
+                <ComboBoxItem Content="OSK Mouse Keyboard"/>
+            </ComboBox>
+            <TextBlock Text="Select keyboard button location: *" />
+            <ComboBox Name="cb_KeyboardLocation">
+                <ComboBoxItem Content="Bottom Right"/>
+                <ComboBoxItem Content="Bottom Left"/>
+                <ComboBoxItem Content="Top Right"/>
+                <ComboBoxItem Content="Top Left"/>
+            </ComboBox>
+            <TextBlock Text="Select keyboard button size: *" />
+            <ComboBox Name="cb_KeyboardSize">
+                <ComboBoxItem Content="Small"/>
+                <ComboBoxItem Content="Medium"/>
+                <ComboBoxItem Content="Large"/>
+            </ComboBox>
+
+            <CheckBox Margin="0,10,0,0" Name="cb_KeyboardAutomatic" Content="Automatically open the keyboard. *" />
+            <CheckBox Margin="0,10,0,0" Name="cb_KeyboardDisplayButton" Content="Display the keyboard open button. *" />
+            <CheckBox Margin="0,10,0,0" Name="cb_StartupWindows" Content="Start app on Windows startup." />
+            <TextBlock Margin="0,10,0,0" Text="* Some settings might require a restart." />
+
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Check Version" Name="btn_CheckVersion" Click="btn_CheckVersion_Click" Height="30" Width="115" FontSize="16" Margin="0,10,0,6" Background="#FF00C8FF" BorderBrush="#FF00C8FF" />
+                <Button Content="Exit app" Name="btn_ExitApp" Click="btn_ExitApp_Click" Height="30" Width="71" FontSize="16" Margin="10,10,0,6" Background="#FF00C8FF" BorderBrush="#FF00C8FF" />
+            </StackPanel>
+
+            <TextBlock Name="txt_version" />
+        </StackPanel>
+    </Grid>
+</Window>

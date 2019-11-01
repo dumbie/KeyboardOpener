@@ -1,0 +1,9 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--Button Styles-->
+    <Style TargetType="{x:Type Button}" x:Name="Button">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Background" Value="#DC1303" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+</ResourceDictionary>
