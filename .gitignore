@@ -1,4 +1,5 @@
 /KeyboardOpener/bin
 /KeyboardOpener/obj
 *.user
+*.pfx
 *.vs
