@@ -141,7 +141,7 @@ namespace Win8_KeyboardOpener
                 //Download Current Version
                 WebClient WebClient = new WebClient();
                 WebClient.Headers[HttpRequestHeader.UserAgent] = "KeyboardOpener";
-                string ResCurrentVersion = await WebClient.DownloadStringTaskAsync(new Uri("http://version.arnoldvink.com/KeyboardOpener.zip-version.txt" + "?nc=" + Environment.TickCount));
+                string ResCurrentVersion = await WebClient.DownloadStringTaskAsync(new Uri("http://download.arnoldvink.com/KeyboardOpener.zip-version.txt" + "?nc=" + Environment.TickCount));
                 if (ResCurrentVersion != System.Reflection.Assembly.GetExecutingAssembly().FullName.Split('=')[1].Split(',')[0])
                 { MessageBox.Show("New version has been found: v" + ResCurrentVersion, "Keyboard Opener"); }
                 else { MessageBox.Show("No new update has been found.", "Keyboard Opener"); }
