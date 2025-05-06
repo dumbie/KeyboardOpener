@@ -8,16 +8,22 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
+using static Win8_KeyboardOpener.ManageKeyboard;
 
 namespace Win8_KeyboardOpener
 {
     public partial class MainWindow : Window
     {
+        //Dll Imports
         [DllImport("user32.dll")]
         static extern IntPtr SetForegroundWindow(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
         [DllImport("user32.dll")]
         static extern IntPtr FindWindow(string ClassName, string WindowName);
@@ -26,19 +32,32 @@ namespace Win8_KeyboardOpener
         static extern IntPtr SendMessage(IntPtr hWnd, UInt32 Msg, IntPtr wParam, IntPtr lParam);
 
         //Application Variables
-        Process Process = new Process();
-        Thread ThreadDetectKeyboard = null;
+        private Thread vThreadDetectKeyboard = null;
+        private IntPtr vInteropWindowHandle = IntPtr.Zero;
 
-        public MainWindow()
+        //Window Initialize
+        public MainWindow() { InitializeComponent(); }
+
+        //Window Initialized
+        protected override void OnSourceInitialized(EventArgs e)
         {
-            StartupChecks();
-            InitializeComponent();
-            Loaded += (sender, args) =>
+            try
             {
+                //Get interop window handle
+                vInteropWindowHandle = new WindowInteropHelper(this).EnsureHandle();
+
+                StartupChecks();
                 new TrayMenu();
-                DetectKeyboardLocation();
+
+                SetWindowStyle();
+                SetKeyboardSize();
+                SetKeyboardLocation();
                 StartDetectKeyboard();
-            };
+
+                //Change keyboard location on window docking
+                SystemEvents.UserPreferenceChanged += (ks, ka) => { SetKeyboardLocation(); };
+            }
+            catch { }
         }
 
         //Startup checks
@@ -80,8 +99,25 @@ namespace Win8_KeyboardOpener
             catch { }
         }
 
-        //Detect keyboard button location
-        void DetectKeyboardLocation()
+        //Set window style
+        void SetWindowStyle()
+        {
+            try
+            {
+                int GWL_EXSTYLE = -20;
+                int WS_EX_NOACTIVATE = 0x8000000;
+
+                int exStyle = GetWindowLong(vInteropWindowHandle, GWL_EXSTYLE);
+                exStyle |= WS_EX_NOACTIVATE;
+                SetWindowLong(vInteropWindowHandle, GWL_EXSTYLE, exStyle);
+
+                Debug.WriteLine("Window style set.");
+            }
+            catch { }
+        }
+
+        //Set keyboard button size
+        void SetKeyboardSize()
         {
             try
             {
@@ -115,11 +151,9 @@ namespace Win8_KeyboardOpener
                         this.Height = 90;
                         this.MaxHeight = 90;
                     }
-
-                    SetKeyboardLocation();
-                    //Change keyboard location on window docking
-                    SystemEvents.UserPreferenceChanged += (ks, ka) => { SetKeyboardLocation(); };
                 }
+
+                Debug.WriteLine("Keyboard size set.");
             }
             catch { }
         }
@@ -156,6 +190,8 @@ namespace Win8_KeyboardOpener
                     Left = (WorkArea.Width - this.Width) - WorkArea.Width + this.Width;
                     Top = (WorkArea.Height - this.Height) - WorkArea.Height + this.Height;
                 }
+
+                Debug.WriteLine("Keyboard location set.");
             }
             catch { }
         }
@@ -167,8 +203,8 @@ namespace Win8_KeyboardOpener
             {
                 if (ConfigurationManager.AppSettings["KeyboardAutomatic"] == "True")
                 {
-                    ThreadDetectKeyboard = new Thread(new DetectKeyboard().DetectKeyBoard);
-                    ThreadDetectKeyboard.Start();
+                    vThreadDetectKeyboard = new Thread(new DetectKeyboard().DetectKeyBoard);
+                    vThreadDetectKeyboard.Start();
                 }
             }
             catch { }
@@ -180,33 +216,13 @@ namespace Win8_KeyboardOpener
             try
             {
                 this.Opacity = 1;
-                if ((GetWindowLong(FindWindow("IPTip_Main_Window", null), -16) & 0x8000000) != 0 || Process.GetProcessesByName("osk").Length == 0 && Process.GetProcessesByName("TabTip").Length == 0)
+                if (IsKeyboardOpen())
                 {
-                    try
-                    {
-                        //Open TabTip / On Screen Keyboard
-                        if (ConfigurationManager.AppSettings["KeyboardType"] == "0") { Process.Start("C:\\Program Files\\Common Files\\Microsoft Shared\\ink\\TabTip.exe"); }
-                        else { Process.Start("C:\\Windows\\System32\\osk.exe"); }
-
-                        //Focus back on active window
-                        Process FocusProcess = Process.GetProcessById(DetectKeyboard.ActiveProcessFocusId);
-                        if (FocusProcess.ProcessName != "explorer") { SetForegroundWindow(FocusProcess.MainWindowHandle); }
-                    }
-                    catch { }
+                    OpenKeyboard();
                 }
                 else
                 {
-                    try
-                    {
-                        //Close TabTip / On Screen Keyboard
-                        SendMessage(FindWindow("IPTip_Main_Window", null), 0x0112, (IntPtr)0xF060, IntPtr.Zero);
-                        foreach (Process KillProc in Process.GetProcessesByName("osk")) { KillProc.Kill(); }
-
-                        //Focus back on active window
-                        Process FocusProcess = Process.GetProcessById(DetectKeyboard.ActiveProcessFocusId);
-                        if (FocusProcess.ProcessName != "explorer") { SetForegroundWindow(FocusProcess.MainWindowHandle); }
-                    }
-                    catch { }
+                    CloseKeyboard();
                 }
             }
             catch { }
@@ -214,35 +230,37 @@ namespace Win8_KeyboardOpener
 
         //Keyboard button press effect
         void Window_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        { this.Opacity = 0.75; }
+        {
+            try
+            {
+                this.Opacity = 0.75;
+            }
+            catch { }
+        }
 
         //Enable/disabled automatic keyboard double click
-        void Window_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        void Window_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             try
             {
                 if (ConfigurationManager.AppSettings["KeyboardAutomatic"] == "True")
                 {
-                    if (ThreadDetectKeyboard.IsAlive)
+                    if (vThreadDetectKeyboard.IsAlive)
                     {
                         img_KeyboardEnabled.Visibility = Visibility.Collapsed;
                         img_KeyboardDisabled.Visibility = Visibility.Visible;
-                        ThreadDetectKeyboard.Abort();
+                        vThreadDetectKeyboard.Abort();
                     }
                     else
                     {
                         img_KeyboardEnabled.Visibility = Visibility.Visible;
                         img_KeyboardDisabled.Visibility = Visibility.Collapsed;
-                        ThreadDetectKeyboard = new Thread(new DetectKeyboard().DetectKeyBoard);
-                        ThreadDetectKeyboard.Start();
+                        vThreadDetectKeyboard = new Thread(new DetectKeyboard().DetectKeyBoard);
+                        vThreadDetectKeyboard.Start();
                     }
                 }
             }
             catch { }
         }
-
-        //Open settings window right mouse click
-        void Window_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
-        { new SettingsWindow().Show(); }
     }
 }
