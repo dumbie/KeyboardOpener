@@ -4,35 +4,20 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using static Win8_KeyboardOpener.AppImport;
+using static Win8_KeyboardOpener.AppVariables;
 using static Win8_KeyboardOpener.ManageKeyboard;
+using static Win8_KeyboardOpener.AppStartup;
 
 namespace Win8_KeyboardOpener
 {
     public partial class MainWindow : Window
     {
-        //Dll Imports
-        [DllImport("user32.dll")]
-        static extern IntPtr SetForegroundWindow(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-
-        [DllImport("user32.dll")]
-        static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
-
-        [DllImport("user32.dll")]
-        static extern IntPtr FindWindow(string ClassName, string WindowName);
-
-        [DllImport("user32.dll")]
-        static extern IntPtr SendMessage(IntPtr hWnd, UInt32 Msg, IntPtr wParam, IntPtr lParam);
-
-        //Application Variables
-        private Thread vThreadDetectKeyboard = null;
+        //Window Variables
         private IntPtr vInteropWindowHandle = IntPtr.Zero;
 
         //Window Initialize
@@ -46,55 +31,17 @@ namespace Win8_KeyboardOpener
                 //Get interop window handle
                 vInteropWindowHandle = new WindowInteropHelper(this).EnsureHandle();
 
-                StartupChecks();
+                AppStartupChecks();
                 new TrayMenu();
 
                 SetWindowStyle();
+                SetKeyboardVisibility();
                 SetKeyboardSize();
                 SetKeyboardLocation();
                 StartDetectKeyboard();
 
                 //Change keyboard location on window docking
                 SystemEvents.UserPreferenceChanged += (ks, ka) => { SetKeyboardLocation(); };
-            }
-            catch { }
-        }
-
-        //Startup checks
-        void StartupChecks()
-        {
-            try
-            {
-                if (Process.GetProcessesByName("KeyboardOpener").Length > 1)
-                {
-                    MessageBox.Show("Keyboard Opener is already running.", "Keyboard Opener");
-                    Environment.Exit(1);
-                }
-
-                string ApplicationRootPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().CodeBase).Replace("file:\\", "").ToString();
-                if (!File.Exists(ApplicationRootPath + "\\Assets\\icon_Keyboard.png"))
-                {
-                    MessageBox.Show("File: Assets\\icon_Keyboard.png could not be found.", "Keyboard Opener");
-                    Environment.Exit(1);
-                }
-
-                if (!File.Exists(ApplicationRootPath + "\\Assets\\icon_KeyboardDisabled.png"))
-                {
-                    MessageBox.Show("File: Assets\\icon_KeyboardDisabled.png could not be found.", "Keyboard Opener");
-                    Environment.Exit(1);
-                }
-
-                if (!File.Exists(ApplicationRootPath + "\\KeyboardOpener.exe"))
-                {
-                    MessageBox.Show("File: KeyboardOpener.exe could not be found.", "Keyboard Opener");
-                    Environment.Exit(1);
-                }
-
-                if (!File.Exists(ApplicationRootPath + "\\KeyboardOpener.exe.config"))
-                {
-                    MessageBox.Show("File: KeyboardOpener.exe.config could not be found.", "Keyboard Opener");
-                    Environment.Exit(1);
-                }
             }
             catch { }
         }
@@ -116,8 +63,8 @@ namespace Win8_KeyboardOpener
             catch { }
         }
 
-        //Set keyboard button size
-        void SetKeyboardSize()
+        //Set keyboard button visibility
+        void SetKeyboardVisibility()
         {
             try
             {
@@ -128,29 +75,42 @@ namespace Win8_KeyboardOpener
                 }
                 else
                 {
-                    //Set keyboard button size
-                    string KeyboardSize = ConfigurationManager.AppSettings["KeyboardSize"];
-                    if (KeyboardSize == "0")
-                    {
-                        this.Width = 85;
-                        this.MaxWidth = 85;
-                        this.Height = 45;
-                        this.MaxHeight = 45;
-                    }
-                    else if (KeyboardSize == "1")
-                    {
-                        this.Width = 127.5;
-                        this.MaxWidth = 127.5;
-                        this.Height = 67.5;
-                        this.MaxHeight = 67.5;
-                    }
-                    else if (KeyboardSize == "2")
-                    {
-                        this.Width = 170;
-                        this.MaxWidth = 170;
-                        this.Height = 90;
-                        this.MaxHeight = 90;
-                    }
+                    this.Visibility = Visibility.Visible;
+                    this.IsEnabled = true;
+                }
+
+                Debug.WriteLine("Keyboard visibility set.");
+            }
+            catch { }
+        }
+
+        //Set keyboard button size
+        void SetKeyboardSize()
+        {
+            try
+            {
+                //Set keyboard button size
+                string KeyboardSize = ConfigurationManager.AppSettings["KeyboardSize"];
+                if (KeyboardSize == "0")
+                {
+                    this.Width = 85;
+                    this.MaxWidth = 85;
+                    this.Height = 45;
+                    this.MaxHeight = 45;
+                }
+                else if (KeyboardSize == "1")
+                {
+                    this.Width = 127.5;
+                    this.MaxWidth = 127.5;
+                    this.Height = 67.5;
+                    this.MaxHeight = 67.5;
+                }
+                else if (KeyboardSize == "2")
+                {
+                    this.Width = 170;
+                    this.MaxWidth = 170;
+                    this.Height = 90;
+                    this.MaxHeight = 90;
                 }
 
                 Debug.WriteLine("Keyboard size set.");
@@ -216,13 +176,13 @@ namespace Win8_KeyboardOpener
             try
             {
                 this.Opacity = 1;
-                if (IsKeyboardOpen())
+                if (!IsKeyboardOpen())
                 {
-                    OpenKeyboard();
+                    OpenKeyboard(true);
                 }
                 else
                 {
-                    CloseKeyboard();
+                    CloseKeyboard(true);
                 }
             }
             catch { }

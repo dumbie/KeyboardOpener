@@ -2,20 +2,14 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using static Win8_KeyboardOpener.AppStartup;
 
 namespace Win8_KeyboardOpener
 {
     public partial class TrayMenu
     {
-        [DllImport("user32.dll")]
-        static extern IntPtr FindWindow(string ClassName, string WindowName);
-
-        [DllImport("user32.dll")]
-        static extern IntPtr SendMessage(IntPtr hWnd, UInt32 Msg, IntPtr wParam, IntPtr lParam);
-
-        //Application Variables
+        //Tray Variables
         static public NotifyIcon NotifyIcon = new NotifyIcon();
         static public ContextMenu ContextMenu = new ContextMenu();
 
@@ -39,25 +33,26 @@ namespace Win8_KeyboardOpener
         }
 
         void NotifyIcon_DoubleClick(object Sender, EventArgs e)
-        { new SettingsWindow().Show(); }
+        {
+            new SettingsWindow().Show();
+        }
 
         void OnSettings(object sender, EventArgs e)
-        { new SettingsWindow().Show(); }
+        {
+            new SettingsWindow().Show();
+        }
 
         void OnWebsite(object sender, EventArgs e)
-        { Process.Start("http://arnoldvink.com?p=projects"); }
+        {
+            Process.Start("https://projects.arnoldvink.com");
+        }
 
-        //Exit the application
+        //Exit application
         void OnExit(object sender, EventArgs e)
         {
             try
             {
-                //Close TabTip / On Screen Keyboard
-                SendMessage(FindWindow("IPTip_Main_Window", null), 0x0112, (IntPtr)0xF060, IntPtr.Zero);
-                foreach (Process KillProc in Process.GetProcessesByName("osk")) { KillProc.Kill(); }
-
-                NotifyIcon.Visible = false;
-                Environment.Exit(1);
+                AppExit();
             }
             catch { }
         }

@@ -1,62 +1,45 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Automation;
+using static Win8_KeyboardOpener.AppImport;
+using static Win8_KeyboardOpener.AppVariables;
 using static Win8_KeyboardOpener.ManageKeyboard;
 
 namespace Win8_KeyboardOpener
 {
     class DetectKeyboard
     {
-        //Dll Imports
-        [DllImport("kernel32.dll")]
-        static extern IntPtr GetCurrentThreadId();
-
-        [DllImport("user32.dll")]
-        static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll")]
-        static extern IntPtr GetFocus();
-
-        [DllImport("user32.dll")]
-        static extern bool GetClassName(IntPtr hWnd, StringBuilder ClassName, int ClassMax);
-
-        [DllImport("user32.dll")]
-        static extern IntPtr GetWindowThreadProcessId(IntPtr hWnd, IntPtr ThreadId);
-
-        [DllImport("user32.dll")]
-        static extern IntPtr AttachThreadInput(IntPtr AttachId, IntPtr AttachToId, bool AttachStatus);
-
-        //Application Variables
-        static public string vActiveProcessFocus = "";
-        static public string vPreviousProcessFocus = "";
-
         //Detect Keyboard Requests
-        public void DetectKeyBoard()
+        public async void DetectKeyBoard()
         {
             while (true)
             {
                 try
                 {
-                    //bool openKeyboard = DetectTextbox_ClassName();
-                    bool openKeyboard = DetectTextbox_UIAutomation();
-
-                    //Fix manually opened keyboard closing
-                    if (vPreviousProcessFocus != vActiveProcessFocus)
+                    //Check if keyboard is opened manually
+                    if (vKeyboardManual)
                     {
+                        await Task.Delay(500);
+                        Debug.WriteLine("Keyboard is opened manually, skipping.");
+                        if (!IsKeyboardOpen()) { vKeyboardManual = false; }
                         continue;
                     }
 
+                    //Check if keyboard needs to be opened
+                    //bool openKeyboard = DetectTextbox_ClassName();
+                    bool openKeyboard = DetectTextbox_UIAutomation();
+
+                    //Open or close keyboard
                     if (openKeyboard)
                     {
-                        OpenKeyboard();
+                        OpenKeyboard(false);
                     }
                     else
                     {
-                        CloseKeyboard();
+                        CloseKeyboard(false);
                     }
                 }
                 catch (Exception ex)
@@ -65,8 +48,33 @@ namespace Win8_KeyboardOpener
                 }
                 finally
                 {
-                    Thread.Sleep(500);
+                    await Task.Delay(500);
                 }
+            }
+        }
+
+        private static IntPtr GetFocusedHandle()
+        {
+            try
+            {
+                IntPtr currentThreadId = GetCurrentThreadId();
+                IntPtr foregroundWindow = GetForegroundWindow();
+                AttachThreadInput(GetWindowThreadProcessId(foregroundWindow, IntPtr.Zero), currentThreadId, true);
+                IntPtr focusedHandle = GetFocus();
+                AttachThreadInput(GetWindowThreadProcessId(foregroundWindow, IntPtr.Zero), currentThreadId, false);
+                if (focusedHandle == IntPtr.Zero)
+                {
+                    return foregroundWindow;
+                }
+                else
+                {
+                    return focusedHandle;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Failed to get focused handle: " + ex.Message);
+                return IntPtr.Zero;
             }
         }
 
@@ -75,21 +83,14 @@ namespace Win8_KeyboardOpener
             try
             {
                 bool openKeyboard = false;
-                StringBuilder stringBuilder = new StringBuilder(50);
 
-                AttachThreadInput(GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero), GetCurrentThreadId(), true);
-                IntPtr focusedHandle = GetFocus();
-                AttachThreadInput(GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero), GetCurrentThreadId(), false);
-
-                if (GetClassName(focusedHandle, stringBuilder, stringBuilder.Capacity))
+                StringBuilder stringBuilder = new StringBuilder(256);
+                if (GetClassName(GetFocusedHandle(), stringBuilder, stringBuilder.Capacity))
                 {
-                    vActiveProcessFocus = stringBuilder.ToString();
-                    if (vPreviousProcessFocus != vActiveProcessFocus && !vActiveProcessFocus.Contains("KeyboardOpener"))
+                    string className = stringBuilder.ToString();
+                    if (className == "Edit" || className == "SearchPane" || className.Contains("RichEdit") || className.Contains("SearchEdit") || className.Contains("TextfieldEdit") || className.Contains("Afx:") || className == "_WwG" || className == "Scintilla" || className == "SPEAD0C4")
                     {
-                        if (vActiveProcessFocus == "Edit" || vActiveProcessFocus == "SearchPane" || vActiveProcessFocus.Contains("RichEdit") || vActiveProcessFocus.Contains("SearchEdit") || vActiveProcessFocus.Contains("TextfieldEdit") || vActiveProcessFocus.Contains("Afx:00400000") || vActiveProcessFocus == "_WwG" || vActiveProcessFocus == "Scintilla" || vActiveProcessFocus == "SPEAD0C4")
-                        {
-                            openKeyboard = true;
-                        }
+                        openKeyboard = true;
                     }
                 }
 
@@ -108,14 +109,8 @@ namespace Win8_KeyboardOpener
             {
                 bool openKeyboard = false;
 
-                IntPtr focusedHandle = GetFocus();
-                if (focusedHandle == IntPtr.Zero)
-                {
-                    focusedHandle = GetForegroundWindow();
-                }
-
-                AutomationElement autoElement = AutomationElement.FromHandle(focusedHandle);
-                //Fix FindAll seems to freeze for couple seconds on certain processes
+                AutomationElement autoElement = AutomationElement.FromHandle(GetFocusedHandle());
+                //Fix FindAll seems to freeze for couple seconds on certain processes like Steam
                 AutomationElementCollection controlEdit = autoElement.FindAll(TreeScope.Subtree, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit));
                 AutomationElementCollection controlPane = autoElement.FindAll(TreeScope.Subtree, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Pane));
                 AutomationElementCollection controlDocument = autoElement.FindAll(TreeScope.Subtree, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document));
@@ -124,7 +119,7 @@ namespace Win8_KeyboardOpener
                 bool focusedEdit = controlEdit.Cast<AutomationElement>().ToList().Any(x => x.Current.HasKeyboardFocus);
                 if (focusedEdit) { openKeyboard = true; }
 
-                bool focusedPane = controlPane.Cast<AutomationElement>().ToList().Where(x => x.Current.ClassName.Contains("Scintilla") && x.Current.HasKeyboardFocus).Any();
+                bool focusedPane = controlPane.Cast<AutomationElement>().ToList().Where(x => (x.Current.ClassName.Contains("Scintilla") || x.Current.ClassName.Contains("Afx:")) && x.Current.HasKeyboardFocus).Any();
                 if (focusedPane) { openKeyboard = true; }
 
                 bool focusedDocument = controlDocument.Cast<AutomationElement>().ToList().Where(x => x.Current.ClassName.Contains("Edit") && x.Current.HasKeyboardFocus).Any();

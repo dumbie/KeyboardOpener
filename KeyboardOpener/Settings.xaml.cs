@@ -1,12 +1,12 @@
 ﻿using Microsoft.Win32;
 using System;
 using System.Configuration;
-using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
+using static Win8_KeyboardOpener.AppStartup;
 
 namespace Win8_KeyboardOpener
 {
@@ -154,12 +154,7 @@ namespace Win8_KeyboardOpener
         {
             try
             {
-                //Close TabTip / On Screen Keyboard
-                SendMessage(FindWindow("IPTip_Main_Window", null), 0x0112, (IntPtr)0xF060, IntPtr.Zero);
-                foreach (Process KillProc in Process.GetProcessesByName("osk")) { KillProc.Kill(); }
-
-                TrayMenu.NotifyIcon.Visible = false;
-                Environment.Exit(1);
+                AppExit();
             }
             catch { }
         }
